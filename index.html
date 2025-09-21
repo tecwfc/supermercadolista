@@ -611,10 +611,7 @@
       <h1>SuperMercado WR</h1>
     </div>
     <div class="report-info">
-
     </div>
-
-
     <div class="search-bar">
       <input type="text" placeholder="Buscar produtos...">
       <button>🔍</button>
@@ -631,8 +628,7 @@
       <ul id="categories-list"></ul>
     </div>
     <div class="products-container"></div>
-  </div>
-
+ </div>
   <!-- Carrinho Overlay -->
   <div class="cart-overlay" id="cart-overlay">
     <div class="cart-sidebar">
@@ -649,13 +645,14 @@
           <span>Total:</span>
           <span id="cart-total">R$ 0,00</span>
         </div>
-        <button class="checkout-btn" onclick="checkout()">Finalizar Compra</button>
+        <!-- <button class="checkout-btn" onclick="checkout()">Finalizar Compra</button> -->
         <button class="print-btn" onclick="printCart()">Imprimir Lista</button>
       </div>
     </div>
   </div>
 
   <script>
+    
     const categories = [
       {
         id: "bazar",
@@ -914,222 +911,227 @@
       }
     ];
 
-    let cart = [];
-    let currentCategory = categories[0].id;
+  let cart = [];
+  let currentCategory = categories[0].id;
 
-    // ==============================
-    // RENDERIZAÇÃO
-    // ==============================
-    document.addEventListener('DOMContentLoaded', () => {
-      renderCategories();
-      renderProducts();
-      updateCart();
+  // ==============================
+  // RENDERIZAÇÃO
+  // ==============================
+  document.addEventListener('DOMContentLoaded', () => {
+    renderCategories();
+    renderProducts();
+
+    // CARREGA O CARRINHO DO LOCALSTORAGE
+    const savedCart = localStorage.getItem('cart');
+    if (savedCart) {
+      cart = JSON.parse(savedCart);
+    }
+
+    updateCart();
+  });
+
+  function renderCategories() {
+    const categoriesList = document.getElementById('categories-list');
+    categoriesList.innerHTML = '';
+    categories.forEach(category => {
+      const li = document.createElement('li');
+      li.className = currentCategory === category.id ? 'active' : '';
+      li.innerHTML = `<span class="category-icon">${category.icon}</span>${category.name}`;
+      li.addEventListener('click', () => {
+        currentCategory = category.id;
+        renderCategories();
+        renderProducts();
+      });
+      categoriesList.appendChild(li);
     });
+  }
 
-    function renderCategories() {
-      const categoriesList = document.getElementById('categories-list');
-      categoriesList.innerHTML = '';
-      categories.forEach(category => {
-        const li = document.createElement('li');
-        li.className = currentCategory === category.id ? 'active' : '';
-        li.innerHTML = `<span class="category-icon">${category.icon}</span>${category.name}`;
-        li.addEventListener('click', () => {
-          currentCategory = category.id;
-          renderCategories();
-          renderProducts();
-        });
-        categoriesList.appendChild(li);
+  function renderProducts() {
+    const container = document.querySelector('.products-container');
+    container.innerHTML = '';
+    const category = categories.find(c => c.id === currentCategory);
+    const title = document.createElement('h2');
+    title.className = 'section-title';
+    title.innerHTML = `${category.icon} ${category.name}`;
+    container.appendChild(title);
+    const grid = document.createElement('div');
+    grid.className = 'products';
+    category.products.forEach(p => {
+      const card = document.createElement('div');
+      card.className = 'product-card';
+      card.innerHTML = `
+        <div class="product-info">
+          <div class="product-name">${p.name}</div>
+          <div class="product-price">R$ ${p.price.toFixed(2)}</div>
+          <button class="add-to-cart" onclick="addToCart(${p.id})">Adicionar</button>
+        </div>`;
+      grid.appendChild(card);
+    });
+    container.appendChild(grid);
+  }
+  // ==============================
+  // CARRINHO
+  // ==============================
+  function addToCart(id) {
+    let product = null;
+    for (const cat of categories) {
+      product = cat.products.find(p => p.id === id);
+      if (product) break;
+    }
+    if (!product) return;
+    const existing = cart.find(i => i.id === id);
+    if (existing) existing.quantity++;
+    else cart.push({ ...product, quantity: 1 });
+    updateCart();
+    const cartCount = document.querySelector('.cart-count');
+    cartCount.style.transform = 'scale(1.3)';
+    setTimeout(() => cartCount.style.transform = 'scale(1)', 300);
+  }
+
+  function removeFromCart(id) {
+    cart = cart.filter(i => i.id !== id);
+    updateCart();
+  }
+
+  function updateQuantity(id, qty) {
+    const item = cart.find(i => i.id === id);
+    if (item) {
+      if (qty <= 0) removeFromCart(id);
+      else item.quantity = Number(qty);
+    }
+    updateCart();
+  }
+
+  function clearCart() {
+    cart = [];
+    localStorage.removeItem('cart'); // remove do armazenamento
+    updateCart();
+  }
+
+  function updateCart() {
+    const cartItems = document.getElementById('cart-items');
+    cartItems.innerHTML = '';
+    if (cart.length === 0) {
+      cartItems.innerHTML = `<div class="empty-cart">Seu carrinho está vazio</div>`;
+    } else {
+      cart.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'cart-item';
+        div.innerHTML = `
+          <div class="item-info">
+            <div class="item-name">${item.name}</div>
+            <div class="item-price">R$ ${item.price.toFixed(2)}</div>
+          </div>
+          <div class="item-quantity">
+            <button class="quantity-btn" onclick="updateQuantity(${item.id}, ${item.quantity - 1})">-</button>
+            <input class="quantity-input" type="number" value="${item.quantity}" onchange="updateQuantity(${item.id}, this.value)">
+            <button class="quantity-btn" onclick="updateQuantity(${item.id}, ${item.quantity + 1})">+</button>
+            <button class="remove-item" onclick="removeFromCart(${item.id})">✖</button>
+          </div>
+        `;
+        cartItems.appendChild(div);
       });
     }
+    const total = cart.reduce((acc, i) => acc + i.price * i.quantity, 0);
+    document.getElementById('cart-total').innerText = `R$ ${total.toFixed(2)}`;
+    document.querySelector('.cart-count').innerText = cart.reduce((acc, i) => acc + i.quantity, 0);
 
-    function renderProducts() {
-      const container = document.querySelector('.products-container');
-      container.innerHTML = '';
-      const category = categories.find(c => c.id === currentCategory);
-      const title = document.createElement('h2');
-      title.className = 'section-title';
-      title.innerHTML = `${category.icon} ${category.name}`;
-      container.appendChild(title);
-      const grid = document.createElement('div');
-      grid.className = 'products';
-      category.products.forEach(p => {
-        const card = document.createElement('div');
-        card.className = 'product-card';
-        card.innerHTML = `
-          <div class="product-info">
-            <div class="product-name">${p.name}</div>
-            <div class="product-price">R$ ${p.price.toFixed(2)}</div>
-            <button class="add-to-cart" onclick="addToCart(${p.id})">Adicionar</button>
-          </div>`;
-        grid.appendChild(card);
+    // SALVA NO LOCALSTORAGE
+    localStorage.setItem('cart', JSON.stringify(cart));
+  }
+
+  function toggleCart() {
+    document.getElementById('cart-overlay').style.display = document.getElementById('cart-overlay').style.display === 'flex' ? 'none' : 'flex';
+  }
+
+  //function checkout() {
+  // if (cart.length === 0) return alert("Seu carrinho está vazio!");
+//  alert("Compra finalizada! Total: " + document.getElementById('cart-total').innerText);
+   // clearCart();
+ //   toggleCart();
+ // }
+
+  // ==============================
+  // IMPRESSÃO
+  // ==============================
+  function printCart() {
+    if (cart.length === 0) return alert("Seu carrinho está vazio!");
+
+    const categoriesInCart = {};
+    for (const item of cart) {
+      const cat = categories.find(c => c.products.some(p => p.id === item.id));
+      if (!categoriesInCart[cat.name]) categoriesInCart[cat.name] = [];
+      categoriesInCart[cat.name].push(item);
+    }
+
+    const printWindow = window.open('', '', 'width=900,height=700');
+    const content = document.createElement('div');
+    content.className = 'print-mode-content';
+    content.style.display = 'flex';
+    content.style.flexWrap = 'wrap';
+    content.style.gap = '20px';
+
+    // Cabeçalho
+    const header = document.createElement('div');
+    header.style.display = "flex";
+    header.style.alignItems = "center";
+    header.style.justifyContent = "space-between";
+    header.style.borderBottom = "3px solid #00796b";
+    header.style.marginBottom = "20px";
+    header.style.padding = "10px";
+
+    header.innerHTML = `
+      <div style="display:flex; align-items:center; gap:10px;">
+        <img src="logo.png" alt="Logo" style="width:60px; height:60px; object-fit:contain;">
+        <h1 style="font-size:1.6rem; color:#00796b;">SuperMercado WR</h1>
+      </div>
+      <div style="text-align:right; font-size:0.9rem; color:#333;">
+        <p>Relatório de Compras</p>
+        <p>${new Date().toLocaleDateString()}</p>
+      </div>
+    `;
+    printWindow.document.body.appendChild(header);
+
+    for (const [catName, items] of Object.entries(categoriesInCart)) {
+      const catDiv = document.createElement('div');
+      catDiv.style.flex = '1 1 48%';
+      catDiv.style.boxSizing = 'border-box';
+      catDiv.style.marginBottom = '20px';
+      catDiv.style.backgroundColor = '#f0f8ff';
+      catDiv.style.padding = '10px';
+      catDiv.innerHTML = `<h3 style="color:#2e7d32; margin-bottom:10px;">${catName}</h3>`;
+
+      const table = document.createElement('table');
+      table.style.width = '100%';
+      table.style.borderCollapse = 'collapse';
+      const tbody = document.createElement('tbody');
+      items.forEach(i => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="border:1px solid #ccc; padding:5px;">${i.name}</td>
+          <td style="border:1px solid #ccc; padding:5px; text-align:center;">${i.quantity}</td>
+          <td style="border:1px solid #ccc; padding:5px; text-align:right;">R$ ${(i.price * i.quantity).toFixed(2)}</td>
+        `;
+        tbody.appendChild(tr);
       });
-      container.appendChild(grid);
+      table.appendChild(tbody);
+      catDiv.appendChild(table);
+      content.appendChild(catDiv);
     }
 
-    // ==============================
-    // CARRINHO
-    // ==============================
-    function addToCart(id) {
-      let product = null;
-      for (const cat of categories) {
-        product = cat.products.find(p => p.id === id);
-        if (product) break;
-      }
-      if (!product) return;
-      const existing = cart.find(i => i.id === id);
-      if (existing) existing.quantity++;
-      else cart.push({ ...product, quantity: 1 });
-      updateCart();
-      const cartCount = document.querySelector('.cart-count');
-      cartCount.style.transform = 'scale(1.3)';
-      setTimeout(() => cartCount.style.transform = 'scale(1)', 300);
-    }
+    const totalDiv = document.createElement('div');
+    totalDiv.style.width = '100%';
+    totalDiv.style.marginTop = '20px';
+    totalDiv.style.fontWeight = 'bold';
+    totalDiv.style.fontSize = '1.2rem';
+    const total = cart.reduce((acc, i) => acc + i.price * i.quantity, 0);
+    totalDiv.innerText = `Total Geral: R$ ${total.toFixed(2)}`;
+    content.appendChild(totalDiv);
 
-    function removeFromCart(id) {
-      cart = cart.filter(i => i.id !== id);
-      updateCart();
-    }
-
-    function updateQuantity(id, qty) {
-      const item = cart.find(i => i.id === id);
-      if (item) {
-        if (qty <= 0) removeFromCart(id);
-        else item.quantity = Number(qty);
-      }
-      updateCart();
-    }
-
-    function clearCart() {
-      cart = [];
-      updateCart();
-    }
-
-    function updateCart() {
-      const cartItems = document.getElementById('cart-items');
-      cartItems.innerHTML = '';
-      if (cart.length === 0) {
-        cartItems.innerHTML = `<div class="empty-cart">Seu carrinho está vazio</div>`;
-      } else {
-        cart.forEach(item => {
-          const div = document.createElement('div');
-          div.className = 'cart-item';
-          div.innerHTML = `
-            <div class="item-info">
-              <div class="item-name">${item.name}</div>
-              <div class="item-price">R$ ${item.price.toFixed(2)}</div>
-            </div>
-            <div class="item-quantity">
-              <button class="quantity-btn" onclick="updateQuantity(${item.id}, ${item.quantity - 1})">-</button>
-              <input class="quantity-input" type="number" value="${item.quantity}" onchange="updateQuantity(${item.id}, this.value)">
-              <button class="quantity-btn" onclick="updateQuantity(${item.id}, ${item.quantity + 1})">+</button>
-              <button class="remove-item" onclick="removeFromCart(${item.id})">✖</button>
-            </div>
-          `;
-          cartItems.appendChild(div);
-        });
-      }
-      const total = cart.reduce((acc, i) => acc + i.price * i.quantity, 0);
-      document.getElementById('cart-total').innerText = `R$ ${total.toFixed(2)}`;
-      document.querySelector('.cart-count').innerText = cart.reduce((acc, i) => acc + i.quantity, 0);
-    }
-
-    function toggleCart() {
-      document.getElementById('cart-overlay').style.display = document.getElementById('cart-overlay').style.display === 'flex' ? 'none' : 'flex';
-    }
-
-    function checkout() {
-      if (cart.length === 0) return alert("Seu carrinho está vazio!");
-      alert("Compra finalizada! Total: " + document.getElementById('cart-total').innerText);
-      clearCart();
-      toggleCart();
-    }
-
-    // ==============================
-    // IMPRESSÃO
-    // ==============================
-    function printCart() {
-      if (cart.length === 0) return alert("Seu carrinho está vazio!");
-
-      const categoriesInCart = {};
-      for (const item of cart) {
-        const cat = categories.find(c => c.products.some(p => p.id === item.id));
-        if (!categoriesInCart[cat.name]) categoriesInCart[cat.name] = [];
-        categoriesInCart[cat.name].push(item);
-      }
-
-      const printWindow = window.open('', '', 'width=900,height=700');
-      const content = document.createElement('div');
-      content.className = 'print-mode-content';
-      content.style.display = 'flex';
-      content.style.flexWrap = 'wrap';
-      content.style.gap = '20px';
-
-
-      // Cabeçalho com logo e nome
-      const header = document.createElement('div');
-      header.style.display = "flex";
-      header.style.alignItems = "center";
-      header.style.justifyContent = "space-between";
-      header.style.borderBottom = "3px solid #00796b";
-      header.style.marginBottom = "20px";
-      header.style.padding = "10px";
-
-      header.innerHTML = `
-  <div style="display:flex; align-items:center; gap:10px;">
-    <img src="logo.png" alt="Logo" style="width:60px; height:60px; object-fit:contain;">
-    <h1 style="font-size:1.6rem; color:#00796b;">SuperMercado WR</h1>
-  </div>
-  <div style="text-align:right; font-size:0.9rem; color:#333;">
-    <p>Relatório de Compras</p>
-    <p>${new Date().toLocaleDateString()}</p>
-  </div>
-`;
-
-      // adiciona o header no início da janela de impressão
-      printWindow.document.body.appendChild(header);
-
-
-      for (const [catName, items] of Object.entries(categoriesInCart)) {
-        const catDiv = document.createElement('div');
-        catDiv.style.flex = '1 1 48%';
-        catDiv.style.boxSizing = 'border-box';
-        catDiv.style.marginBottom = '20px';
-        catDiv.style.backgroundColor = '#f0f8ff';
-        catDiv.style.padding = '10px';
-        catDiv.innerHTML = `<h3 style="color:#2e7d32; margin-bottom:10px;">${catName}</h3>`;
-
-        const table = document.createElement('table');
-        table.style.width = '100%';
-        table.style.borderCollapse = 'collapse';
-        const tbody = document.createElement('tbody');
-        items.forEach(i => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td style="border:1px solid #ccc; padding:5px;">${i.name}</td>
-            <td style="border:1px solid #ccc; padding:5px; text-align:center;">${i.quantity}</td>
-            <td style="border:1px solid #ccc; padding:5px; text-align:right;">R$ ${(i.price * i.quantity).toFixed(2)}</td>
-          `;
-          tbody.appendChild(tr);
-        });
-        table.appendChild(tbody);
-        catDiv.appendChild(table);
-        content.appendChild(catDiv);
-      }
-
-      const totalDiv = document.createElement('div');
-      totalDiv.style.width = '100%';
-      totalDiv.style.marginTop = '20px';
-      totalDiv.style.fontWeight = 'bold';
-      totalDiv.style.fontSize = '1.2rem';
-      const total = cart.reduce((acc, i) => acc + i.price * i.quantity, 0);
-      totalDiv.innerText = `Total Geral: R$ ${total.toFixed(2)}`;
-      content.appendChild(totalDiv);
-
-      printWindow.document.body.appendChild(content);
-      printWindow.document.title = 'Relatório de Compras';
-      printWindow.document.title = 'SuperMercado WR';
-      printWindow.print();
-    }
+    printWindow.document.body.appendChild(content);
+    printWindow.document.title = 'Relatório de Compras';
+    printWindow.print();
+  }
   </script>
 </body>
 
